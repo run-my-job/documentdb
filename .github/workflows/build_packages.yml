@@ -3,15 +3,7 @@ concurrency:
   group: build-packages-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - "main"
-    paths-ignore:
-      - ".devcontainer/**"
-      - "*.md"
-
+on: push
 permissions:
   packages: write
   contents: read
@@ -19,7 +11,7 @@ permissions:
 
 jobs:
   build-deb-packages:
-    runs-on: ${{ matrix.runner }}
+    runs-on: puzl-ubuntu-latest
     name: ${{ matrix.os }}-${{ matrix.arch }}-pg${{ matrix.pg_version }}
     strategy:
       fail-fast: false
@@ -56,7 +48,7 @@ jobs:
         run: |
           # Install GPG and dpkg-sig for signing DEB packages
           sudo apt-get update && sudo apt-get install -y gnupg2 dpkg-sig
-          
+
           # Generate a temporary signing key for demo purposes
           # In production, use proper key management with secure key storage
           cat > /tmp/gpg-batch <<EOF
@@ -73,9 +65,9 @@ jobs:
           %commit
           %echo done
           EOF
-          
+
           gpg --batch --generate-key /tmp/gpg-batch
-          
+
           # Sign all DEB packages
           # The key ID for dpkg-sig is usually the email or Name-Real used during key generation
           KEY_ID="DocumentDB Package Signing" 
@@ -85,7 +77,7 @@ jobs:
               dpkg-sig --sign "$KEY_ID" "$deb_file"
             fi
           done
-          
+
           # Export public key for verification
           # Ensure the email/name matches the one used in Name-Email/Name-Real for key generation
           gpg --armor --export "DocumentDB Package Signing" > packaging/documentdb-signing-key.asc
@@ -93,7 +85,8 @@ jobs:
       - name: Upload Debian Package as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: archive-${{ matrix.os }}-${{ matrix.arch }}-pg${{ matrix.pg_version }}-documentdb-${{ env.DOCUMENTDB_VERSION }}
+          name: archive-${{ matrix.os }}-${{ matrix.arch }}-pg${{ 
+            matrix.pg_version }}-documentdb-${{ env.DOCUMENTDB_VERSION }}
           path: |
             packaging/*.deb
             packaging/documentdb-signing-key.asc
@@ -150,7 +143,9 @@ jobs:
           push: true
           platforms: linux/${{ matrix.arch }}
           file: .github/containers/Build-Ubuntu/Dockerfile_prebuild
-          tags: ghcr.io/${{ github.repository }}/documentdb-oss:PG${{ matrix.pg_version }}-${{ matrix.arch }}-${{ env.DOCUMENTDB_VERSION }}
+          tags: ghcr.io/${{ github.repository }}/documentdb-oss:PG${{ 
+            matrix.pg_version }}-${{ matrix.arch }}-${{ env.DOCUMENTDB_VERSION 
+            }}
           build-args: |
             BASE_IMAGE=${{ env.BASE_IMAGE }}
             POSTGRES_VERSION=${{ matrix.pg_version }}
@@ -168,7 +163,7 @@ jobs:
         if: matrix.os == 'ubuntu22.04'
         run: |
           cosign sign ghcr.io/${{ github.repository }}/documentdb-oss:PG${{ matrix.pg_version }}-${{ matrix.arch }}-${{ env.DOCUMENTDB_VERSION }} -y
-      
+
       - name: Verify manifest signature (keyless)
         if: matrix.os == 'ubuntu22.04'
         run: |

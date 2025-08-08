@@ -1,26 +1,13 @@
 name: Build RPM packages
 concurrency:
-  group: build-rpm-packages-${{ github.event.pull_request.number || github.ref }}
+  group: build-rpm-packages-${{ github.event.pull_request.number || github.ref 
+    }}
   cancel-in-progress: true
 
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - 'main'
-    paths-ignore:
-      - '.devcontainer/**'
-      - '*.md'
-  pull_request:
-    types: [opened, reopened, synchronize]
-    paths:
-      - 'packaging/**'
-      - 'scripts/**'
-
-
+on: push
 jobs:
   build-rpm-packages:
-    runs-on: ${{ matrix.runner }}
+    runs-on: puzl-ubuntu-latest
     name: ${{ matrix.os }}-${{ matrix.arch }}-pg${{ matrix.pg_version }}
     strategy:
       fail-fast: false
@@ -55,7 +42,7 @@ jobs:
         run: |
           # Install RPM signing tools
           sudo apt-get update && sudo apt-get install -y rpm gnupg2
-          
+
           # Generate a temporary signing key for demo purposes
           # In production, use proper key management with secure key storage
           cat > /tmp/gpg-batch <<EOF
@@ -72,15 +59,15 @@ jobs:
           %commit
           %echo done
           EOF
-          
+
           gpg --batch --generate-key /tmp/gpg-batch
-          
+
           # Configure RPM signing
           echo "%_gpg_name DocumentDB RPM Package Signing" >> ~/.rpmmacros
           echo "%_gpg_path /home/runner/.gnupg" >> ~/.rpmmacros # GPG home directory
           echo "%_signature gpg" >> ~/.rpmmacros
           echo "%__gpg_sign_cmd %{__gpg} gpg --force-v3-sigs --batch --verbose --no-armor --passphrase-fd 3 --no-secmem-warning -u \"%{_gpg_name}\" -sbo %{__signature_filename} --digest-algo sha256 %{__plaintext_filename}" >> ~/.rpmmacros
-          
+
           # Sign all RPM packages
           for rpm_file in packaging/*.rpm; do
             if [[ -f "$rpm_file" ]]; then
@@ -89,7 +76,7 @@ jobs:
               rpm --addsign "$rpm_file"
             fi
           done
-          
+
           # Export public key for verification
           # Ensure the email matches the one used in Name-Email for key generation
           gpg --armor --export "DocumentDB RPM Package Signing" > packaging/documentdb-rpm-signing-key.asc
@@ -97,7 +84,8 @@ jobs:
       - name: Upload RPM Package as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os }}-${{ matrix.arch }}-pg${{ matrix.pg_version }}-documentdb-${{ env.DOCUMENTDB_VERSION }}
+          name: ${{ matrix.os }}-${{ matrix.arch }}-pg${{ matrix.pg_version 
+            }}-documentdb-${{ env.DOCUMENTDB_VERSION }}
           path: |
             packaging/*.rpm
             packaging/documentdb-rpm-signing-key.asc

@@ -4,25 +4,10 @@ concurrency:
   group: sql-tests-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - 'main'
-    paths-ignore:
-      - 'docs/**'
-      - '.devcontainer/**'
-      - '*.md'
-  pull_request:
-    types: [opened, reopened, synchronize]
-    paths-ignore:
-      - 'docs/**'
-      - '.devcontainer/**'
-      - '*.md'
-
+on: push
 jobs:
   test-run-in-Ubuntu:
-    runs-on: ${{ matrix.runner }}
+    runs-on: puzl-ubuntu-latest
     name: ${{ matrix.runner }} with PG ${{ matrix.pg_version }}
     strategy:
       fail-fast: false
@@ -42,7 +27,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
+
       - name: Install CMake 3.22
         run: |
           sudo apt-get update
@@ -158,7 +143,7 @@ jobs:
           ./scripts/validate_extension_file_state.sh
 
       - name: Upload Log Files
-        if: always() 
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: logs_$${{ matrix.runner }}_PG${{ matrix.pg_version }}
